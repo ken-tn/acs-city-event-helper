@@ -110,7 +110,9 @@ local ChangeFlag = false;
 local TimePassed = 0;
 
 function CityEventHelper:OnInit()
-    self.tbData = {AutoAgency = false}
+    if not self.tbData then
+        self.tbData = {AutoAgency = false}
+    end
     -- Expose private methods of some classes
     xlua.private_accessible(CS.Wnd_QuickCityWindow);
     xlua.private_accessible(CS.XiaWorld.MapStoryMgr);
