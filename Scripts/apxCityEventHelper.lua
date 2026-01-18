@@ -122,7 +122,6 @@ function CityEventHelper:OnInit()
 end
 
 local Wnd_GameMain = nil
-local UI_CityStory = nil
 function CityEventHelper:OnEnter()
     -- Setup a hook to trigger when city window is shown
     if CityWindowHookRegistered == false then
@@ -133,7 +132,6 @@ function CityEventHelper:OnEnter()
     end
 
     Wnd_GameMain = CS.Wnd_GameMain.Instance
-    UI_CityStory = nil
 end
 
 function CityEventHelper:OnSetHotKey()
