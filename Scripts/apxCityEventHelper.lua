@@ -44,6 +44,33 @@ local EventResultPositive = {
     AddGodPopulation = 17, -- OutSpread_God1
 };
 
+local EventResultPositiveHeur = {
+    IncreaseAllPop = 1.00,
+    SlightlyIncreaseAllPop = 0.95,
+    
+    IncreasePop = 1.0,
+    SlightlyIncreasePop = 0.80,
+    
+    DirectlyGrabOtherPop = 0.65,
+    DirectlyGrabOtherPopSlightly = 0.50,
+    
+    AddGodPopulation = 0.3,
+    
+    HugeIncreaseStab = 0.50,
+    IncreaseStab = 0.45,
+    SlightlyIncreaseStab = 0.30,
+    
+    DecreaseOtherPop = 0,
+    SlightlyDecreaseOtherPop = 0,
+    
+    GreatlyIncreaseAttra = 0.35,
+    IncreaseAttra = 0.30,
+    SlightlyIncreaseAttra = 0.25,
+    
+    DecreaseOtherAttra = 0,
+    SlightlyDecreaseOtherAttra = 0,
+};
+
 -- Based on methods from Scripts/MapStory/MapStory.lua
 -- We consider such outcomes negative
 local EventResultNegative = {
@@ -87,9 +114,12 @@ function CityEventHelper:OnInit()
     xlua.private_accessible(CS.Wnd_QuickCityWindow);
     xlua.private_accessible(CS.XiaWorld.MapStoryMgr);
     xlua.private_accessible(CS.FairyGUI.GObject);
+    xlua.private_accessible(CS.Wnd_GameMain);
     CityEventHelper:Log("Private classes are exposed");
 end
 
+local Wnd_GameMain = nil
+local UI_CityStory = nil
 function CityEventHelper:OnEnter()
     -- Setup a hook to trigger when city window is shown
     if CityWindowHookRegistered == false then
@@ -98,6 +128,9 @@ function CityEventHelper:OnEnter()
         CityEventHelper:Log("Hooked city window display event");
         CityWindowHookRegistered = true;
     end
+
+    Wnd_GameMain = CS.Wnd_GameMain.Instance
+    UI_CityStory = nil
 end
 
 function CityEventHelper:OnWnd_QuickCityWindowAdded(Wnd_QuickCityWindow)
@@ -115,7 +148,7 @@ end
 
 -- This is a workaround to overcome concurrent UI modification
 -- We will wait for ~100ms after the event is handled by the game
-function CityEventHelper:OnRender(dt)
+function CityEventHelper:OnStep(dt)
     -- dt is seconds since last tick
     if ChangeFlag == true then
         TimePassed = TimePassed + dt;
@@ -124,6 +157,12 @@ function CityEventHelper:OnRender(dt)
             TimePassed = 0;
             CityEventHelper:UpdateCityEventWindow();
         end
+    end
+
+    if Wnd_GameMain.UIInfo.m_citystory.visible then
+        Wnd_GameMain:LookCityStory()
+        CityEventHelper:Log("Looked at city story");
+        Wnd_GameMain.UIInfo.m_citystory.visible = false
     end
 end
 
@@ -147,6 +186,10 @@ function CityEventHelper:UpdateCityEventWindow()
 
         CityEventHelper:Log("Detected event with policy name:", policyName, "| Region:", region.RegionName);
 
+        -- Auto picking
+        local bestButton = -1
+        local bestScore = 0
+
         -- Let's iterate over the buttons
         local buttonsList = Wnd_QuickCityWindow.UIInfo.m_n31;
         for i = 0, 8 do
@@ -161,11 +204,13 @@ function CityEventHelper:UpdateCityEventWindow()
             local descriptionUpdate = "";
             local positiveEffectsCount = 0;
             local negativeEffectsCount = 0;
+            local score = 0
 
             for key, value in pairs(result) do
                 if EventResultPositive[key] ~= nil then
                     positiveEffectsCount = positiveEffectsCount + 1;
                     descriptionUpdate = descriptionUpdate.."\n".."<font color=#009600>"..key.."</font>";
+                    score = score + EventResultPositiveHeur[key]
                 end
                 if EventResultNegative[key] ~= nil then
                     negativeEffectsCount = negativeEffectsCount + 1;
@@ -182,6 +227,10 @@ function CityEventHelper:UpdateCityEventWindow()
                 titleUpdate = "(~)";
             elseif positiveEffectsCount > 0 then
                 titleUpdate = "(+)";
+                if score > bestScore then
+                    bestButton = i
+                    bestScore = score
+                end
             elseif negativeEffectsCount > 0 then
                 titleUpdate = "(-)";
             end
@@ -200,6 +249,16 @@ function CityEventHelper:UpdateCityEventWindow()
                 -- CityEventHelper:Log("Decision:", decisionId, " | Updating desc", " | Elem:", button.name);
                 button.tooltips = CS.XiaWorld.GameDefine.SolveWayToDes[decisionId].."\n"..descriptionUpdate;
             end
+        end
+
+        -- same code for confirmation
+        if region.RegionPolicy.Way ~= SolveWayEnumMapping[bestButton+1] then
+            if region.RegionPolicy == nil or region.RegionPolicy.PolicyStory ~= nil then
+                region.RegionPolicy.Way = SolveWayEnumMapping[bestButton+1];
+            end
+            CS.XiaWorld.EventMgr.Instance:EventTrigger(g_emEvent.OutsRegionChange, nil, region.RegionName);
+            Wnd_QuickCityWindow:UpdateEvent(region)
+            Wnd_QuickCityWindow:Hide()
         end
     end
 end
