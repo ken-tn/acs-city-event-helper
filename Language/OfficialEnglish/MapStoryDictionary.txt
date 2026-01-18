@@ -1,0 +1,2 @@
+Key	Value
+CEH：切换自动	CEH: Toggle

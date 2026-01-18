@@ -50,18 +50,10 @@ local EventResultPositiveHeur = {
     
     IncreasePop = 1.0,
     SlightlyIncreasePop = 0.80,
-    
-    DirectlyGrabOtherPop = 0.65,
-    DirectlyGrabOtherPopSlightly = 0.50,
-    
-    AddGodPopulation = 0.3,
-    
+
     HugeIncreaseStab = 0.50,
     IncreaseStab = 0.45,
     SlightlyIncreaseStab = 0.30,
-    
-    DecreaseOtherPop = 0,
-    SlightlyDecreaseOtherPop = 0,
     
     GreatlyIncreaseAttra = 0.35,
     IncreaseAttra = 0.30,
@@ -69,6 +61,14 @@ local EventResultPositiveHeur = {
     
     DecreaseOtherAttra = 0,
     SlightlyDecreaseOtherAttra = 0,
+
+    DecreaseOtherPop = 0,
+    SlightlyDecreaseOtherPop = 0,
+
+    DirectlyGrabOtherPop = 0.65,
+    DirectlyGrabOtherPopSlightly = 0.50,
+
+    AddGodPopulation = 0.3,
 };
 
 -- Based on methods from Scripts/MapStory/MapStory.lua
@@ -110,6 +110,7 @@ local ChangeFlag = false;
 local TimePassed = 0;
 
 function CityEventHelper:OnInit()
+    self.tbData = {AutoAgency = false}
     -- Expose private methods of some classes
     xlua.private_accessible(CS.Wnd_QuickCityWindow);
     xlua.private_accessible(CS.XiaWorld.MapStoryMgr);
@@ -131,6 +132,28 @@ function CityEventHelper:OnEnter()
 
     Wnd_GameMain = CS.Wnd_GameMain.Instance
     UI_CityStory = nil
+end
+
+function CityEventHelper:OnSetHotKey()
+	local tbHotKey = { {ID = "CEH_AutoAgency_Toggle", Name = XT("CEH：切换自动"), Type = "Mod", InitialKey1 = "LeftShift+P" , InitialKey2 = "Keypad3" } };
+    CityEventHelper:Log("Set auto agency toggle hotkey");
+	
+	return tbHotKey;
+end
+
+function CityEventHelper:OnHotKey(ID,state)
+	if ID == "CEH_AutoAgency_Toggle" and state == "down" then 
+        self.tbData.AutoAgency = not self.tbData.AutoAgency
+        CityEventHelper:Log("Auto agency: "..tostring(self.tbData.AutoAgency));
+    end
+end
+
+function CityEventHelper:OnSave()
+	return self.tbData
+end
+
+function CityEventHelper:OnLoad(tbLoad)
+    self.tbData = tbLoad or {AutoAgency = false};
 end
 
 function CityEventHelper:OnWnd_QuickCityWindowAdded(Wnd_QuickCityWindow)
@@ -159,10 +182,12 @@ function CityEventHelper:OnStep(dt)
         end
     end
 
-    if Wnd_GameMain.UIInfo.m_citystory.visible then
-        Wnd_GameMain:LookCityStory()
-        CityEventHelper:Log("Looked at city story");
-        Wnd_GameMain.UIInfo.m_citystory.visible = false
+    if self.tbData.AutoAgency then
+        if Wnd_GameMain.UIInfo.m_citystory.visible then
+            Wnd_GameMain:LookCityStory()
+            CityEventHelper:Log("Looked at city story");
+            Wnd_GameMain.UIInfo.m_citystory.visible = false
+        end
     end
 end
 
@@ -252,13 +277,15 @@ function CityEventHelper:UpdateCityEventWindow()
         end
 
         -- same code for confirmation
-        if region.RegionPolicy.Way ~= SolveWayEnumMapping[bestButton+1] then
-            if region.RegionPolicy == nil or region.RegionPolicy.PolicyStory ~= nil then
-                region.RegionPolicy.Way = SolveWayEnumMapping[bestButton+1];
+        if self.tbData.AutoAgency then
+            if region.RegionPolicy.Way ~= SolveWayEnumMapping[bestButton+1] then
+                if region.RegionPolicy == nil or region.RegionPolicy.PolicyStory ~= nil then
+                    region.RegionPolicy.Way = SolveWayEnumMapping[bestButton+1];
+                end
+                CS.XiaWorld.EventMgr.Instance:EventTrigger(g_emEvent.OutsRegionChange, nil, region.RegionName);
+                Wnd_QuickCityWindow:UpdateEvent(region)
+                Wnd_QuickCityWindow:Hide()
             end
-            CS.XiaWorld.EventMgr.Instance:EventTrigger(g_emEvent.OutsRegionChange, nil, region.RegionName);
-            Wnd_QuickCityWindow:UpdateEvent(region)
-            Wnd_QuickCityWindow:Hide()
         end
     end
 end
