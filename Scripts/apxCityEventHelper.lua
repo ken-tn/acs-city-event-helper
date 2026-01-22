@@ -121,7 +121,6 @@ function CityEventHelper:OnInit()
     CityEventHelper:Log("Private classes are exposed");
 end
 
-local Wnd_GameMain = nil
 function CityEventHelper:OnEnter()
     -- Setup a hook to trigger when city window is shown
     if CityWindowHookRegistered == false then
@@ -130,8 +129,6 @@ function CityEventHelper:OnEnter()
         CityEventHelper:Log("Hooked city window display event");
         CityWindowHookRegistered = true;
     end
-
-    Wnd_GameMain = CS.Wnd_GameMain.Instance
 end
 
 function CityEventHelper:OnSetHotKey()
@@ -183,6 +180,10 @@ function CityEventHelper:OnStep(dt)
     end
 
     if self.tbData.AutoAgency then
+        local Wnd_GameMain = CS.Wnd_GameMain.Instance
+        if not Wnd_GameMain then
+            return
+        end
         if Wnd_GameMain.UIInfo.m_citystory.visible then
             Wnd_GameMain:LookCityStory()
             CityEventHelper:Log("Looked at city story");
